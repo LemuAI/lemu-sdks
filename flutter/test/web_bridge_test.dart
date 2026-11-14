@@ -44,6 +44,8 @@ void main() {
   });
 
   test('reads the IANA time zone', () {
-    expect(browserTimeZone(), contains('/'));
+    // An IANA name such as Asia/Kolkata, or UTC on a machine set to UTC.
+    expect(browserTimeZone(),
+        matches(RegExp(r'^[A-Za-z_]+(/[A-Za-z0-9_+\-]+)*$')));
   });
 }
