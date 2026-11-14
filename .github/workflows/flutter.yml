@@ -30,9 +30,11 @@ jobs:
         include:
           # Latest stable with the newest dependencies: format, analyze, test.
           - flutter: stable
+            version: any
             deps: newest
           # Oldest supported Flutter with the oldest allowed dependencies.
           - flutter: '3.22.0'
+            version: '3.22.0'
             deps: oldest
     defaults:
       run:
@@ -43,7 +45,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: ${{ matrix.flutter == 'stable' && '' || matrix.flutter }}
+          # "any" is the latest release on the channel.
+          flutter-version: ${{ matrix.version }}
           cache: true
 
       - run: flutter --version
