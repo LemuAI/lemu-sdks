@@ -46,14 +46,9 @@ Each SDK is released from a tag; the workflows in [.github/workflows](.github/wo
 
 Swift Package Manager resolves versions from plain semver tags at the repository root, so in this repository the plain `x.y.z` tags belong to the iOS SDK.
 
-## Moving to its own repository
+## Where the code lives
 
-This directory is laid out as the root of `github.com/LemuAI/lemu-sdks` (MIT): the workflows, `Package.swift` and the podspec expect paths relative to it. To publish it there with its history:
-
-```bash
-git subtree split --prefix=sdks -b lemu-sdks-export
-git push git@github.com:LemuAI/lemu-sdks.git lemu-sdks-export:main
-```
+This repository (https://github.com/LemuAI/lemu-sdks) is where the SDKs are developed and released. The workflows, `Package.swift` and the podspec use paths relative to its root.
 
 ## License
 
