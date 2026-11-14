@@ -1,0 +1,54 @@
+{
+  "name": "@lemuai/react-native",
+  "version": "1.0.0",
+  "description": "Lemu tracking for React Native and Expo apps: events, purchases, app lifecycle, deep links and screens.",
+  "license": "MIT",
+  "author": "LemuAI",
+  "homepage": "https://docs.lemuai.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LemuAI/lemu-sdks.git",
+    "directory": "js/packages/react-native"
+  },
+  "keywords": ["lemu", "analytics", "react-native", "expo", "tracking", "attribution"],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "react-native": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "react-native": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" },
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@lemuai/analytics": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.17",
+    "react": ">=17",
+    "react-native": ">=0.65",
+    "react-native-device-info": ">=10"
+  },
+  "peerDependenciesMeta": {
+    "react-native-device-info": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "react": "^18.3.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

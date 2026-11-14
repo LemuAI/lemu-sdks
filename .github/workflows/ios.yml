@@ -1,0 +1,99 @@
+name: iOS SDK
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+      - 'spec/**'
+      - 'conformance/**'
+      - 'LemuAnalytics.podspec'
+      - '.github/workflows/ios.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'spec/**'
+      - 'conformance/**'
+      - 'LemuAnalytics.podspec'
+      - '.github/workflows/ios.yml'
+    # Path filters are not applied to tag pushes, so a release tag always runs.
+    tags: ['ios-v*']
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: swift test (macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: swift test
+        working-directory: ios
+        run: swift test
+
+  build-apple-platforms:
+    name: Build for iOS and tvOS simulators
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: iOS Simulator
+        working-directory: ios
+        run: xcodebuild -scheme LemuAnalytics -destination 'generic/platform=iOS Simulator' build
+      - name: tvOS Simulator
+        working-directory: ios
+        run: xcodebuild -scheme LemuAnalytics -destination 'generic/platform=tvOS Simulator' build
+      - name: Mac Catalyst
+        working-directory: ios
+        run: xcodebuild -scheme LemuAnalytics -destination 'generic/platform=macOS,variant=Mac Catalyst' build
+
+  pod-lint:
+    name: pod lib lint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint podspec
+        run: pod lib lint LemuAnalytics.podspec --allow-warnings --skip-tests
+
+  release:
+    name: Release (CocoaPods trunk, SwiftPM tag)
+    if: startsWith(github.ref, 'refs/tags/ios-v')
+    needs: [test, build-apple-platforms, pod-lint]
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check versions match the tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#ios-v}"
+          POD_VERSION=$(sed -n "s/^ *s.version *= *'\(.*\)'/\1/p" LemuAnalytics.podspec)
+          SDK_VERSION=$(sed -n 's/.*public static let current = "\(.*\)"/\1/p' ios/Sources/LemuAnalytics/Core/ContextInfo.swift)
+          echo "tag=$TAG_VERSION podspec=$POD_VERSION sdk=$SDK_VERSION"
+          test "$TAG_VERSION" = "$POD_VERSION"
+          test "$TAG_VERSION" = "$SDK_VERSION"
+          echo "VERSION=$TAG_VERSION" >> "$GITHUB_ENV"
+      - name: Tag for Swift Package Manager
+        # SwiftPM resolves versions from plain semver tags (1.2.3), not ios-v1.2.3.
+        # The iOS SDK is the only package in this repo that SwiftPM reads, so it owns them.
+        run: |
+          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+            echo "Tag $VERSION already exists"
+          else
+            git tag "$VERSION" "$GITHUB_SHA"
+            git push origin "refs/tags/$VERSION"
+          fi
+      - name: Publish to CocoaPods trunk
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: pod trunk push LemuAnalytics.podspec --allow-warnings

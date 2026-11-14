@@ -1,0 +1,50 @@
+{
+  "$comment": "Source of truth for event names every Lemu SDK exposes as constants. The Lemu server keeps a copy and its tests check they match. Meta's standard events and parameters are used exactly as Meta defines them (https://developers.facebook.com/docs/meta-pixel/reference). Only conversion events have required fields.",
+  "version": 1,
+  "meta_events": [
+    {"name": "PageView", "label": "Page view", "params": []},
+    {"name": "ViewContent", "label": "View content", "params": ["content_ids", "content_category", "content_name", "content_type", "contents", "currency", "value"]},
+    {"name": "Search", "label": "Search", "params": ["search_string", "content_category", "content_ids", "contents", "currency", "value"]},
+    {"name": "AddToCart", "label": "Add to cart", "params": ["content_ids", "content_name", "content_type", "contents", "currency", "value"]},
+    {"name": "AddToWishlist", "label": "Add to wishlist", "params": ["content_ids", "content_name", "content_category", "contents", "currency", "value"]},
+    {"name": "InitiateCheckout", "label": "Initiate checkout", "params": ["content_ids", "content_category", "contents", "currency", "num_items", "value"]},
+    {"name": "AddPaymentInfo", "label": "Add payment info", "params": ["content_ids", "content_category", "contents", "currency", "value"]},
+    {"name": "Purchase", "label": "Purchase", "params": ["value", "currency", "order_id", "content_ids", "content_name", "content_type", "contents", "num_items"]},
+    {"name": "Lead", "label": "Lead", "params": ["content_category", "content_name", "currency", "value"]},
+    {"name": "CompleteRegistration", "label": "Complete registration", "params": ["content_name", "currency", "status", "value"]},
+    {"name": "Subscribe", "label": "Subscribe", "params": ["currency", "predicted_ltv", "value"]},
+    {"name": "StartTrial", "label": "Start trial", "params": ["currency", "predicted_ltv", "value"]},
+    {"name": "Schedule", "label": "Schedule", "params": []},
+    {"name": "SubmitApplication", "label": "Submit application", "params": []},
+    {"name": "Contact", "label": "Contact", "params": []},
+    {"name": "CustomizeProduct", "label": "Customize product", "params": []},
+    {"name": "Donate", "label": "Donate", "params": []},
+    {"name": "FindLocation", "label": "Find location", "params": []}
+  ],
+  "params": {
+    "value": "number, major units (1499.5 = Rs 1,499.50). AddToCart: value of what was added. InitiateCheckout: checkout total. Purchase: order total.",
+    "currency": "string, ISO 4217 (INR)",
+    "order_id": "string. Lemu addition (Meta Conversions API has the same field): one conversion per order however many sources report it.",
+    "content_ids": "array of strings: product ids or SKUs",
+    "contents": "array of {id, quantity, item_price?, title?, brand?, category?}",
+    "content_type": "string: product or product_group",
+    "content_name": "string",
+    "content_category": "string",
+    "num_items": "integer",
+    "search_string": "string",
+    "predicted_ltv": "number",
+    "status": "string"
+  },
+  "conversion": {
+    "$comment": "Required on conversion events (Purchase by default; a workspace can add others in Sending limits). Events are never rejected for a missing field; the server reports it.",
+    "required": ["value", "currency", "order_id"]
+  },
+  "lifecycle_events": [
+    {"name": "app_installed", "label": "App installed", "auto": true},
+    {"name": "app_updated", "label": "App updated", "auto": true},
+    {"name": "app_opened", "label": "App opened", "auto": true},
+    {"name": "app_backgrounded", "label": "App backgrounded", "auto": true},
+    {"name": "deep_link_opened", "label": "Deep link opened", "auto": true},
+    {"name": "screen_viewed", "label": "Screen viewed", "auto": false}
+  ]
+}

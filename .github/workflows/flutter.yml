@@ -1,0 +1,125 @@
+name: Flutter SDK
+
+on:
+  push:
+    branches: [main]
+    tags: ['flutter-v*']
+    paths:
+      - 'flutter/**'
+      - 'spec/**'
+      - 'conformance/**'
+      - '.github/workflows/flutter.yml'
+  pull_request:
+    paths:
+      - 'flutter/**'
+      - 'spec/**'
+      - 'conformance/**'
+      - '.github/workflows/flutter.yml'
+
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test (Flutter ${{ matrix.flutter }}, ${{ matrix.deps }} deps)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Latest stable with the newest dependencies: format, analyze, test.
+          - flutter: stable
+            deps: newest
+          # Oldest supported Flutter with the oldest allowed dependencies.
+          - flutter: '3.22.0'
+            deps: oldest
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ matrix.flutter == 'stable' && '' || matrix.flutter }}
+          cache: true
+
+      - run: flutter --version
+
+      - name: Get dependencies
+        run: |
+          if [ "${{ matrix.deps }}" = "oldest" ]; then
+            flutter pub downgrade
+          else
+            flutter pub upgrade
+          fi
+
+      - name: Check formatting
+        if: matrix.deps == 'newest'
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test (VM, includes conformance C01-C20)
+        run: flutter test
+
+      - name: Test web bridge (Chrome)
+        if: matrix.deps == 'newest'
+        run: flutter test --platform chrome test/web_bridge_test.dart
+
+      - name: Build example for the web
+        if: matrix.deps == 'newest'
+        working-directory: flutter/example
+        run: |
+          flutter create --platforms=web --project-name lemu_analytics_example .
+          flutter build web
+
+  publish:
+    # pub.dev automated publishing with GitHub OIDC. On pub.dev, the package
+    # admin page must allow publishing from LemuAI/lemu-sdks with the tag
+    # pattern flutter-v{{version}} and the "pub.dev" environment.
+    #
+    # dart-lang/setup-dart's reusable publish workflow installs only Dart,
+    # and `dart pub publish` cannot resolve a package that depends on the
+    # Flutter SDK. So, as pub.dev's docs describe for Flutter packages,
+    # setup-dart configures the OIDC token and Flutter publishes.
+    name: Publish to pub.dev
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/flutter-v')
+    runs-on: ubuntu-latest
+    environment: pub.dev
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sets up the pub.dev OIDC token for this job.
+      - uses: dart-lang/setup-dart@v1
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Check the tag matches pubspec.yaml
+        run: |
+          tag="${GITHUB_REF_NAME#flutter-v}"
+          version="$(grep -E '^version:' pubspec.yaml | awk '{print $2}')"
+          code_version="$(grep -oE "lemuSdkVersion = '[^']+'" lib/src/version.dart | cut -d"'" -f2)"
+          echo "tag=$tag pubspec=$version lib=$code_version"
+          test "$tag" = "$version"
+          test "$version" = "$code_version"
+
+      - run: flutter pub get
+
+      - name: Dry run
+        run: flutter pub publish --dry-run
+
+      - name: Publish
+        run: flutter pub publish --force

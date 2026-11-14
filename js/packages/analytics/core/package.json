@@ -1,0 +1,7 @@
+{
+  "main": "../dist/core.cjs",
+  "module": "../dist/core.js",
+  "types": "../dist/core.d.ts",
+  "react-native": "../dist/core.cjs",
+  "sideEffects": false
+}

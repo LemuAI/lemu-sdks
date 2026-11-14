@@ -1,0 +1,88 @@
+# JavaScript SDKs (js/): lint, test and build on every push and pull request;
+# publish @lemuai/analytics, @lemuai/react and @lemuai/react-native to npm on a
+# js-v<version> tag. Paths are relative to the repository root (this sdks/ folder).
+name: js
+
+on:
+  push:
+    branches: [main]
+    tags: ["js-v*"]
+    paths:
+      - "js/**"
+      - "spec/**"
+      - "conformance/**"
+      - ".github/workflows/js.yml"
+  pull_request:
+    paths:
+      - "js/**"
+      - "spec/**"
+      - "conformance/**"
+      - ".github/workflows/js.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: js
+
+jobs:
+  check:
+    name: lint, test, build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Snippet size budget
+        run: npm run size
+
+  publish:
+    name: publish to npm
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/js-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+          registry-url: https://registry.npmjs.org
+      - name: Check the tag matches the package versions
+        run: |
+          TAG="${GITHUB_REF_NAME#js-v}"
+          for pkg in analytics react react-native; do
+            VERSION=$(node -p "require('./packages/$pkg/package.json').version")
+            if [ "$VERSION" != "$TAG" ]; then
+              echo "packages/$pkg is $VERSION but the tag is js-v$TAG"
+              exit 1
+            fi
+          done
+      - run: npm ci
+      - run: npm run build
+      # @lemuai/analytics first: the other two depend on it.
+      - run: npm publish -w @lemuai/analytics --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish -w @lemuai/react --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish -w @lemuai/react-native --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

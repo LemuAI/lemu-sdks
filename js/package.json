@@ -1,0 +1,27 @@
+{
+  "name": "lemu-js-sdks",
+  "private": true,
+  "description": "Lemu JavaScript SDKs: @lemuai/analytics, @lemuai/react, @lemuai/react-native",
+  "license": "MIT",
+  "workspaces": [
+    "packages/analytics",
+    "packages/react",
+    "packages/react-native"
+  ],
+  "scripts": {
+    "build": "npm run build -w @lemuai/analytics && npm run build -w @lemuai/react && npm run build -w @lemuai/react-native",
+    "test": "npm test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "size": "npm run size -w @lemuai/analytics"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "ajv": "^8.20.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
