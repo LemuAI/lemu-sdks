@@ -3,7 +3,22 @@
 All notable changes to the Lemu iOS SDK (`LemuAnalytics`). Releases are tagged
 `ios-v<version>` (CocoaPods) and `<version>` (Swift Package Manager).
 
-## 1.0.0 (unreleased)
+## 1.1.0
+
+The first release on CocoaPods and Swift Package Manager; it includes everything listed under 1.0.0.
+
+- Campaign context keeps `lmclid`, the click id Lemu adds to message links, so a visit from a WhatsApp, SMS or email link is tied to the person it was sent to.
+
+- In-app messages: experiences built in Lemu for apps (popup, slide-in, toast, bar) show as
+  native UIKit views. Screen rules match `Lemu.screen` names; triggers on screen, after a delay,
+  on a tracked event or from code. Frequency, holdout and sticky A/B variants follow the same
+  rules as the website. Forms post to Lemu (with WhatsApp code verification and offer codes).
+- `Lemu.experiences` (`LemuExperiences`): `show(_:)`, `hide()`, `setEnabled(_:)`, `isEnabled`,
+  `refresh()` and a `delegate` (`LemuExperiencesDelegate`, `LemuExperienceEvent`).
+- `LemuOptions.inAppMessages` (default true) turns them off.
+- Sends `onsite_viewed`, `onsite_closed`, `onsite_clicked` and `onsite_held_out`.
+
+## 1.0.0 (not published)
 
 First release.
 

@@ -169,5 +169,5 @@ enum LemuContextBuilder {
 
 public enum LemuVersion {
     /// The SDK version, sent in `context.library.version` and the User-Agent.
-    public static let current = "1.0.0"
+    public static let current = "1.1.0"
 }

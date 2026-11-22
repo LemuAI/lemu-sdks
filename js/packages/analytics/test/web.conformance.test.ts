@@ -54,7 +54,7 @@ describe("web conformance", () => {
     expect(m.event).toBe("AddToCart");
     expect(m.properties).toEqual({ value: 999, currency: "INR" });
     expect(m.context.platform).toBe("web");
-    expect(m.context.library).toEqual({ name: "lemu-js", version: "1.0.0" });
+    expect(m.context.library).toEqual({ name: "lemu-js", version: "1.1.0" });
   });
 
   it("C02 two tracks share the anonymousId with distinct UUID v4 messageIds", async () => {

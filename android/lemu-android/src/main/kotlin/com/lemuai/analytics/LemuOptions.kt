@@ -16,6 +16,8 @@ import com.lemuai.analytics.core.LemuConfig
  * @property flushAt send when this many messages are queued.
  * @property flushIntervalSeconds send at least this often while messages are queued.
  * @property maxQueueSize most messages kept on disk while offline.
+ * @property inAppMessages show the in-app messages (experiences) you build in Lemu. On by default;
+ *   false means the SDK never fetches them and `Lemu.experiences.show()` does nothing.
  */
 class LemuOptions
     @JvmOverloads
@@ -30,6 +32,7 @@ class LemuOptions
         val flushAt: Int = 20,
         val flushIntervalSeconds: Int = 30,
         val maxQueueSize: Int = 1_000,
+        val inAppMessages: Boolean = true,
     ) {
         /** Java-friendly builder: `LemuOptions.builder().debug(true).requireConsent(true).build()`. */
         class Builder {
@@ -43,6 +46,7 @@ class LemuOptions
             private var flushAt = 20
             private var flushIntervalSeconds = 30
             private var maxQueueSize = 1_000
+            private var inAppMessages = true
 
             fun apiHost(value: String) = apply { apiHost = value }
 
@@ -64,6 +68,8 @@ class LemuOptions
 
             fun maxQueueSize(value: Int) = apply { maxQueueSize = value }
 
+            fun inAppMessages(value: Boolean) = apply { inAppMessages = value }
+
             fun build(): LemuOptions =
                 LemuOptions(
                     apiHost = apiHost,
@@ -76,6 +82,7 @@ class LemuOptions
                     flushAt = flushAt,
                     flushIntervalSeconds = flushIntervalSeconds,
                     maxQueueSize = maxQueueSize,
+                    inAppMessages = inAppMessages,
                 )
         }
 

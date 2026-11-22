@@ -8,7 +8,7 @@ import java.net.URLDecoder
  */
 object Campaign {
     private val UTM_KEYS = listOf("source", "medium", "campaign", "term", "content", "id")
-    private val CLICK_IDS = listOf("gclid", "fbclid")
+    private val CLICK_IDS = listOf("gclid", "fbclid", "lmclid")
 
     /** Campaign fields from a full URL (`https://brand.com/p?utm_source=x`, `brand://open?utm_source=x`). */
     @JvmStatic

@@ -7,6 +7,10 @@
 -keep class com.lemuai.analytics.LemuEvent { public *; }
 -keep class com.lemuai.analytics.LemuContent { public *; }
 -keep class com.lemuai.analytics.LemuActivityScreenTracker { public *; }
+-keep class com.lemuai.analytics.LemuExperiences { public *; }
+-keep class com.lemuai.analytics.LemuExperienceEvent { public *; }
+-keep class com.lemuai.analytics.LemuExperienceEvent$Type { *; }
+-keep interface com.lemuai.analytics.LemuExperienceListener { *; }
 
 # The Play Install Referrer library is optional; it is looked up by name at runtime.
 -dontwarn com.android.installreferrer.**

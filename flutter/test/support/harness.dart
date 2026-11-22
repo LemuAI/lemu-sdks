@@ -28,6 +28,11 @@ class RecordingClient {
   RecordingClient() {
     client = MockClient((request) async {
       if (!online) throw http.ClientException('offline', request.url);
+      // In-app messages config and the like: not part of the batch tests.
+      if (!request.url.path.endsWith('/pixel/batch')) {
+        otherRequests.add(request);
+        return http.Response('{"live":false}', 200);
+      }
       final status = statuses.isNotEmpty ? statuses.removeAt(0) : defaultStatus;
       requests.add(request);
       responses.add(status);
@@ -37,6 +42,9 @@ class RecordingClient {
 
   late final MockClient client;
   final List<http.Request> requests = [];
+
+  /// Requests to anything but the batch endpoint.
+  final List<http.Request> otherRequests = [];
   final List<int> responses = [];
   final List<int> statuses = [];
   int defaultStatus = 204;

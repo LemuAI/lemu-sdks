@@ -21,6 +21,9 @@ public final class LemuOptions: NSObject {
     @objc public var trackLifecycle: Bool
     /// Sends deep_link_opened from `Lemu.trackDeepLink(_:referrer:)`. Default true.
     @objc public var trackDeepLinks: Bool
+    /// Shows in-app messages (the experiences you build in Lemu for this app). Default true.
+    /// False: the SDK never loads them and `Lemu.experiences.show(_:)` does nothing.
+    @objc public var inAppMessages: Bool
 
     public init(
         apiHost: String = LemuOptions.defaultAPIHost,
@@ -30,7 +33,8 @@ public final class LemuOptions: NSObject {
         flushInterval: TimeInterval = 30,
         maxQueueSize: Int = 1000,
         trackLifecycle: Bool = true,
-        trackDeepLinks: Bool = true
+        trackDeepLinks: Bool = true,
+        inAppMessages: Bool = true
     ) {
         self.apiHost = apiHost
         self.debug = debug
@@ -40,6 +44,7 @@ public final class LemuOptions: NSObject {
         self.maxQueueSize = maxQueueSize
         self.trackLifecycle = trackLifecycle
         self.trackDeepLinks = trackDeepLinks
+        self.inAppMessages = inAppMessages
         super.init()
     }
 

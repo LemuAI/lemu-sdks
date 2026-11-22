@@ -3,6 +3,19 @@
 All notable changes to the Lemu Android SDK (`com.lemuai:analytics`) are listed here.
 Releases are tagged `android-v<version>`.
 
+## 1.1.0
+
+- Campaign context keeps `lmclid`, the click id Lemu adds to message links, so a visit from a WhatsApp, SMS or email link is tied to the person it was sent to.
+
+- In-app messages: experiences built in Lemu for apps (popup, slide-in, toast, bar) render with native
+  views, using the same screen rules, triggers (screen, delay, event, manual), audience, frequency,
+  A/B variants and holdout as the website. Forms submit to Lemu, show the offer code, and support
+  multi-step and WhatsApp code verification. Views, closes, clicks and holdout are sent as
+  `onsite_viewed`, `onsite_closed`, `onsite_clicked` and `onsite_held_out`.
+- `Lemu.experiences`: `show(key)`, `hide()`, `setEnabled()`, `isEnabled`, `refresh()` and
+  `setListener(LemuExperienceListener)` with `LemuExperienceEvent`.
+- `LemuOptions.inAppMessages` (default true) to turn in-app messages off.
+
 ## 1.0.0
 
 First release.

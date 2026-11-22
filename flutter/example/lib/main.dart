@@ -23,6 +23,8 @@ class ExampleApp extends StatelessWidget {
     return WidgetsApp(
       color: const Color(0xFF4F46E5),
       navigatorObservers: [LemuNavigatorObserver()],
+      // In-app messages built in Lemu show inside the host.
+      builder: (context, child) => LemuExperiencesHost(child: child!),
       initialRoute: '/',
       pageRouteBuilder: <T>(RouteSettings settings, WidgetBuilder builder) =>
           PageRouteBuilder<T>(

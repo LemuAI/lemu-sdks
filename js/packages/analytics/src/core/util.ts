@@ -40,9 +40,10 @@ export function cleanProps(value: unknown): Properties {
   return copy && typeof copy === "object" ? copy : {};
 }
 
-const CAMPAIGN_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid"];
+const CAMPAIGN_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid", "lmclid"];
 
-/** UTM parameters (without `utm_`) plus gclid and fbclid from a URL or query string. */
+/** UTM parameters (without `utm_`) plus gclid, fbclid and lmclid (a Lemu
+ * message link: which person the link was sent to) from a URL or query string. */
 export function parseCampaign(url: string | null | undefined): Campaign {
   const out: Record<string, string> = {};
   if (!url) return out;

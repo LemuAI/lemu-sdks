@@ -64,14 +64,14 @@ Set by the SDK, never by the brand's code. Send what the platform can provide; o
   "locale": "en-IN",
   "timezone": "Asia/Kolkata",
   "userAgent": "...",
-  "campaign": {"source": "google", "medium": "cpc", "campaign": "diwali", "term": "", "content": "", "gclid": "", "fbclid": ""},
+  "campaign": {"source": "google", "medium": "cpc", "campaign": "diwali", "term": "", "content": "", "gclid": "", "fbclid": "", "lmclid": ""},
   "page": {"url": "...", "path": "/", "title": "...", "referrer": "..."}
 }
 ```
 
 - `platform`: `web`, `ios`, `android`, `flutter`, `react_native`, `shopify` or `server`.
 - `device.type`: `phone`, `tablet`, `desktop`, `tv` or `other`.
-- `campaign`: UTM parameters (without the `utm_` prefix) plus `gclid` / `fbclid`, from the page URL, the deep link that opened the app, or the Android install referrer.
+- `campaign`: UTM parameters (without the `utm_` prefix) plus `gclid` / `fbclid` / `lmclid`, from the page URL, the deep link that opened the app, or the Android install referrer. `lmclid` is added by Lemu message links (le2.in) on links to the workspace's own sites; the server uses it to link a not-yet-known visitor to the person the message went to.
 - No advertising ids (IDFA, GAID) and no hardware ids.
 
 ## Responses

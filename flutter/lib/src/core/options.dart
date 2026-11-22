@@ -9,6 +9,7 @@ class LemuOptions {
     this.maxQueueSize = 1000,
     this.trackLifecycle = true,
     this.trackDeepLinks = true,
+    this.inAppMessages = true,
   });
 
   static const String defaultApiHost = 'https://app.lemuai.com';
@@ -44,6 +45,11 @@ class LemuOptions {
   /// are kept either way.
   final bool trackDeepLinks;
 
+  /// Show in-app messages (experiences built in Lemu for apps). When false
+  /// the SDK never fetches them. Ignored on the web, where the website
+  /// script shows experiences.
+  final bool inAppMessages;
+
   /// Hard upper bound on [maxQueueSize].
   static const int queueLimit = 1000;
 
@@ -56,6 +62,7 @@ class LemuOptions {
     int? maxQueueSize,
     bool? trackLifecycle,
     bool? trackDeepLinks,
+    bool? inAppMessages,
   }) =>
       LemuOptions(
         apiHost: apiHost ?? this.apiHost,
@@ -66,5 +73,6 @@ class LemuOptions {
         maxQueueSize: maxQueueSize ?? this.maxQueueSize,
         trackLifecycle: trackLifecycle ?? this.trackLifecycle,
         trackDeepLinks: trackDeepLinks ?? this.trackDeepLinks,
+        inAppMessages: inAppMessages ?? this.inAppMessages,
       );
 }

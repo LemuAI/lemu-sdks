@@ -1,15 +1,16 @@
 {
   "name": "lemu-js-sdks",
   "private": true,
-  "description": "Lemu JavaScript SDKs: @lemuai/analytics, @lemuai/react, @lemuai/react-native",
+  "description": "Lemu JavaScript SDKs: @lemuai/analytics, @lemuai/react, @lemuai/react-native, and the onsite.js renderer",
   "license": "MIT",
   "workspaces": [
     "packages/analytics",
     "packages/react",
-    "packages/react-native"
+    "packages/react-native",
+    "packages/onsite"
   ],
   "scripts": {
-    "build": "npm run build -w @lemuai/analytics && npm run build -w @lemuai/react && npm run build -w @lemuai/react-native",
+    "build": "npm run build -w @lemuai/analytics && npm run build -w @lemuai/react && npm run build -w @lemuai/react-native && npm run build -w @lemuai/onsite",
     "test": "npm test --workspaces",
     "lint": "npm run lint --workspaces",
     "size": "npm run size -w @lemuai/analytics"

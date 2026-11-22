@@ -3,7 +3,18 @@
 All notable changes to the Lemu JavaScript SDKs. The three packages are
 released together with the same version, tagged `js-v<version>`.
 
-## 1.0.0 (unreleased)
+## 1.1.0
+
+### @lemuai/analytics
+
+- `dist/lemu.js` loads the experiences renderer (`onsite.js`, served by Lemu) only when the site has a live experience, a preview is open or the page is a Lemu landing page. `lemu("onsite.show", key)` and the other `onsite.*` calls are queued until it loads, and tracked events are also dispatched as a `lemu:event` DOM event for experience triggers. The `onsite` option turns it off.
+- Campaign context keeps `lmclid`, the click id Lemu adds to message links, so a visit from a WhatsApp, SMS or email link is tied to the person it was sent to.
+
+### @lemuai/react-native
+
+- In-app messages: `<LemuExperiences />` shows the experiences built in Lemu for apps (popup, slide-in, toast and top bar) with the same screen, audience, trigger, frequency, A/B and holdout rules as the website. Forms submit to Lemu and can show an offer code. `lemu.experiences.show(key)`, `hide()`, `setEnabled(on)`, `refresh()` and `on("shown" | "closed" | "submitted" | "clicked", fn)`; `inAppMessages: false` turns it off.
+
+## 1.0.0
 
 First release on npm.
 

@@ -83,6 +83,7 @@ Map<String, String> campaignFromUri(Uri uri) {
     'utm_content': 'content',
     'gclid': 'gclid',
     'fbclid': 'fbclid',
+    'lmclid': 'lmclid',
   };
   final out = <String, String>{};
   Map<String, String> params;

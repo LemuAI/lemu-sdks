@@ -44,6 +44,9 @@ class LemuClient
 
         val isOptedOut: Boolean get() = optedOut
 
+        /** True when consent is not required or has been granted (in-app messages keep history on disk only then). */
+        val hasConsent: Boolean get() = consentGranted
+
         // State below is only touched on the scheduler thread.
         private var identityPersisted = false
         private val held = ArrayDeque<HeldMessage>()

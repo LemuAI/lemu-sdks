@@ -192,6 +192,9 @@ class LemuCore {
 
   bool get isOptedOut => _optedOut;
   bool get hasConsent => _consent;
+
+  /// The User-Agent sent with requests, once start-up has read it.
+  String? get userAgent => _transport?.userAgent;
   bool get isWeb => _isWeb;
   int get flushAt => _flushAt;
   Duration get flushInterval => _flushInterval;

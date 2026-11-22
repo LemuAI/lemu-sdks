@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'LemuAnalytics'
-  s.version          = '1.0.0'
+  s.version          = '1.1.0'
   s.summary          = 'Lemu tracking SDK for iOS and tvOS: events, purchases, screens and app lifecycle.'
   s.description      = <<~DESC
     Sends events from iOS and tvOS apps to Lemu (https://lemuai.com): Meta standard

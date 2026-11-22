@@ -241,6 +241,7 @@ describe("helpers", () => {
       campaign: "diwali sale",
       gclid: "G",
     });
+    expect(parseCampaign("https://shop.test/sale?lmclid=AbC12345")).toEqual({ lmclid: "AbC12345" });
     expect(parseCampaign("https://x.test/")).toEqual({});
     expect(parseCampaign(undefined)).toEqual({});
   });

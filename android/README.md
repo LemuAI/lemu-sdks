@@ -60,6 +60,7 @@ If your app runs code in more than one process, call `setup` in the main process
 | `flushAt` | `20` | Send when this many events are queued |
 | `flushIntervalSeconds` | `30` | Send at least this often while events are queued |
 | `maxQueueSize` | `1000` | Most events kept on the device while offline |
+| `inAppMessages` | `true` | Shows the in-app messages you build in Lemu (see [In-app messages](#in-app-messages)) |
 
 ## Track events
 
@@ -138,6 +139,85 @@ LemuActivityScreenTracker.register(this) { activity -> activity.title?.toString(
 ```
 
 Apps built on one activity with Compose or Fragments should call `Lemu.screen()` from their navigation.
+
+## In-app messages
+
+Experiences you build in Lemu (Experiences, platform **App** or **Any**) show inside your app as native
+popups, bottom cards, toasts and top bars, with the same rules, A/B variants, holdout and reporting as on
+your website. Nothing to add beyond `setup`: the SDK fetches your live experiences at launch and again when
+the app returns to the foreground (at most every 5 minutes). Messages appear over the activity in front and
+follow the user to the next one; call `setup` from `Application.onCreate()` so the SDK sees your activities.
+
+Messages use the screens and events you already send:
+
+- **Where**: the screen rules (`screen equals`, `screen starts with`) match the names you pass to
+  `Lemu.screen()`, ignoring case. Send screens from your navigation (or `trackActivityScreens = true`).
+- **When**: `On page load` shows on each matching `screen()`; `After a delay` starts a timer on each
+  `screen()`; `When an event happens` matches `Lemu.track()` names (ignoring case, spaces, `_` and `-`);
+  `Manual` shows only when you call `show()`.
+- **Who**: new or returning visitor, number of visits and logged in (a user id from `identify`). Rules that
+  need Lemu's data (segments, known contact, records) are checked with Lemu before showing. Website-only
+  rules (cart, UTM, device) are ignored in apps.
+- **How often**: once per session, day, N days or ever, stop after a submit, stop after N closes, and the
+  per-session popup limit, all kept on the device.
+
+```kotlin
+// Show one now, for example from a "Notify me" button (its trigger can be Manual).
+Lemu.experiences.show("size_alert")
+
+// Close the one on screen.
+Lemu.experiences.hide()
+
+// Pause automatic messages, for example during checkout. show() still works.
+Lemu.experiences.setEnabled(false)
+
+// Get told what happens. Called on the main thread.
+Lemu.experiences.setListener(object : LemuExperienceListener {
+    override fun onShown(event: LemuExperienceEvent) {}
+    override fun onClosed(event: LemuExperienceEvent) {}          // event.byUser
+    override fun onSubmitted(event: LemuExperienceEvent) {}       // event.fields, event.offerCode
+    override fun onClicked(event: LemuExperienceEvent) {}         // event.target: the URL or "copy_code"
+})
+```
+
+`show()` returns false when nothing could show: an unknown key, a format apps don't render, another message
+already on screen, or the visitor is in the experience's holdout group. Called before the experiences have
+loaded, it shows the message once they arrive.
+
+If you send `ViewContent` with `content_ids`, the first id is sent to Lemu as the product when a rule needs
+Lemu's data (for example "has an open stock alert for this product"). A new `screen()` clears it.
+
+What renders in apps:
+
+| Format | In the app |
+|---|---|
+| Popup | A card in the middle of the screen over a dimmed background. Back and a tap outside close it |
+| Slide-in | A card at the bottom of the screen |
+| Toast | A small card at the bottom that hides itself after a few seconds |
+| Bar | A banner across the top, below the status bar |
+
+Other formats (inline blocks, widgets, teasers, floating buttons) and code variants are website only.
+Blocks: heading, text, image, button (submit, next step, close, open a link, copy the code), close link,
+form fields (email, phone with country code, text, number, checkbox and consent, choice lists, rating and
+NPS as chips), and the offer code with a Copy button after a submit. Multi-step messages move to the next
+step after each one and to the success step after a submit. Phone verification by WhatsApp code works as
+on the website. Colours, corner radius and button style come from your Lemu theme.
+
+Views (`onsite_viewed`), closes (`onsite_closed`), link and copy taps (`onsite_clicked`) and holdout
+(`onsite_held_out`) are sent as events with the experience, variant and screen, so Lemu's experience stats
+include your app. Form submits go to Lemu directly and count like website submits.
+
+Opted-out users see no in-app messages. With `requireConsent`, messages still show before consent, and
+what was shown is kept in memory only until consent is given.
+
+To turn in-app messages off completely (nothing is fetched):
+
+```kotlin
+Lemu.setup(this, "lpk_...", LemuOptions(inAppMessages = false))
+```
+
+From Java: `Lemu.getExperiences().show("size_alert")`. Java listeners implement all four methods of
+`LemuExperienceListener`.
 
 ## Identify users
 

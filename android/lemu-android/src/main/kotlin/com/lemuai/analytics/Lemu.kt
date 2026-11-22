@@ -13,6 +13,8 @@ import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.lemuai.analytics.core.ExperienceEngine
+import com.lemuai.analytics.core.ExperienceHost
 import com.lemuai.analytics.core.FileStorage
 import com.lemuai.analytics.core.InMemoryStorage
 import com.lemuai.analytics.core.LemuClient
@@ -46,6 +48,13 @@ object Lemu {
 
     @Volatile private var client: LemuClient? = null
     private var warnedNotSetUp = false
+
+    /**
+     * In-app messages: the experiences you build in Lemu, shown with native views. Available
+     * before [setup] (calls do nothing until then). Turn them off with `LemuOptions(inAppMessages = false)`.
+     */
+    @JvmStatic
+    val experiences: LemuExperiences = LemuExperiences()
 
     /** True once [setup] has run. */
     @JvmStatic
@@ -93,10 +102,11 @@ object Lemu {
                     )
                 val referrer =
                     if (options.collectInstallReferrer && PlayInstallReferrer.isAvailable()) PlayInstallReferrer(app) else null
+                val storage = storageFor(app, config.writeKey)
                 val c =
                     LemuClient(
                         config = config,
-                        storage = storageFor(app, config.writeKey),
+                        storage = storage,
                         contextProvider = androidContext::current,
                         logger = AndroidLogger,
                         installReferrerSource = referrer,
@@ -107,6 +117,9 @@ object Lemu {
                 if (app is Application) {
                     app.registerActivityLifecycleCallbacks(DeepLinkCallbacks(options.trackDeepLinks))
                     if (options.trackActivityScreens) LemuActivityScreenTracker.register(app)
+                }
+                if (options.inAppMessages && app is Application) {
+                    startExperiences(app, c, storage, androidContext.userAgent)
                 }
                 onMainThread { observeProcessLifecycle() }
             }
@@ -121,7 +134,10 @@ object Lemu {
     fun track(
         event: String,
         properties: Map<String, Any?>? = null,
-    ) = withClient { it.track(event, properties) }
+    ) = withClient {
+        it.track(event, properties)
+        experiences.onTrack(event, properties)
+    }
 
     /** Sends a `screen` message, for example `screen("Checkout", mapOf("step" to 2))`. */
     @JvmStatic
@@ -129,7 +145,10 @@ object Lemu {
     fun screen(
         name: String,
         properties: Map<String, Any?>? = null,
-    ) = withClient { it.screen(name, properties) }
+    ) = withClient {
+        it.screen(name, properties)
+        experiences.onScreen(name)
+    }
 
     /**
      * Ties this device to your own user id and records contact details (`email`, `phone` in E.164,
@@ -157,7 +176,10 @@ object Lemu {
         contentIds: List<String>? = null,
         numItems: Int? = null,
         properties: Map<String, Any?>? = null,
-    ) = withClient { it.purchase(value, currency, orderId, contents, contentIds, numItems, properties) }
+    ) = withClient {
+        it.purchase(value, currency, orderId, contents, contentIds, numItems, properties)
+        experiences.onTrack(LemuEvent.PURCHASE, properties)
+    }
 
     /** Call on logout: a new anonymous id, and the user id is cleared. */
     @JvmStatic
@@ -234,6 +256,44 @@ object Lemu {
         }
     }
 
+    private fun startExperiences(
+        app: Application,
+        c: LemuClient,
+        storage: Storage,
+        userAgent: String,
+    ) {
+        try {
+            val renderer = ExperienceRenderer(app)
+            val engine =
+                ExperienceEngine(
+                    writeKey = c.config.writeKey,
+                    apiHost = c.config.apiHost,
+                    userAgent = userAgent,
+                    platform = "android",
+                    storage = storage,
+                    host =
+                        object : ExperienceHost {
+                            override val anonymousId: String? get() = c.anonymousId
+                            override val userId: String? get() = c.userId
+                            override val isOptedOut: Boolean get() = c.isOptedOut
+                            override val canPersist: Boolean get() = c.hasConsent && !c.isOptedOut
+
+                            override fun track(
+                                event: String,
+                                properties: Map<String, Any?>,
+                            ) = c.track(event, properties)
+                        },
+                    presenter = renderer,
+                    logger = if (c.config.debug) AndroidLogger else null,
+                    dispatch = { task -> experiences.postToMain(task) },
+                )
+            experiences.attach(engine)
+            engine.start()
+        } catch (t: Throwable) {
+            Log.w(TAG, "in-app messages unavailable", t)
+        }
+    }
+
     private fun onMainThread(block: () -> Unit) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             block()
@@ -256,9 +316,13 @@ object Lemu {
                                 val url = openedUrl
                                 openedUrl = null
                                 c.applicationOpened(fromBackground = started, url = url)
+                                if (started) experiences.onForeground()
                                 started = true
                             }
-                            Lifecycle.Event.ON_STOP -> c.applicationBackgrounded()
+                            Lifecycle.Event.ON_STOP -> {
+                                c.applicationBackgrounded()
+                                experiences.onBackground()
+                            }
                             else -> Unit
                         }
                     } catch (_: Throwable) {

@@ -9,6 +9,7 @@ that brought people in.
 - No third-party dependencies
 - No advertising identifier (IDFA), no IDFV, no AdSupport or AppTrackingTransparency
 - Events are queued on disk and sent in batches, so nothing is lost offline
+- In-app messages built in Lemu, shown as native popups, slide-ins, toasts and bars
 
 You need a **write key** (`lpk_...`). In Lemu, open **Settings > Tracking sources**, add a
 source of type **App** and copy its key.
@@ -276,6 +277,86 @@ extension CheckoutViewController: LemuScreenNameProviding {
 }
 ```
 
+## In-app messages
+
+Experiences you build in Lemu for this app (popups, slide-ins, toasts and bars) show in
+the app as native views, with the same rules, A/B variants and holdout as on your website.
+They are on by default; nothing else is needed after `Lemu.setup`. Build them in Lemu under
+**Experiences** with the platform set to **App** (or **Any**).
+
+How it works:
+
+- The SDK loads the live experiences for your write key at launch and again when the app
+  returns to the foreground (at most every 5 minutes).
+- **Screens** decide where a message may show. Rules match the names you send with
+  `Lemu.screen(...)` or `.lemuScreen(...)`: "Screen is" and "Screen starts with" (case is
+  ignored), or any screen.
+- **Triggers**: when a screen is shown, a number of seconds after a screen is shown, when
+  you track an event (for example `AddToCart`; case, spaces, `_` and `-` are ignored), or
+  only when your code asks for it.
+- **Who**: new or returning visitor, number of visits, and logged in (`identify` with a user
+  id). Rules that need Lemu's data (segments, known contact, records, catalog) are checked
+  with Lemu before the message shows. Website-only rules (device, UTM, cart) are skipped.
+- **How often**: always, once per session (a session ends after 30 minutes away), once a day,
+  once every N days or once ever; stop after a form is sent; stop after N closes, with a
+  24-hour pause after a close by default. The history is kept on the device.
+- One message shows at a time. A visitor in an experience's holdout group never sees it
+  (Lemu counts them for the comparison).
+
+### Show, pause and listen
+
+```swift
+// Show one now, whatever its screens, trigger and frequency (for example on a "Notify me" tap).
+Lemu.experiences.show("size_alert")
+
+// No automatic messages for a while (for example during checkout). show(_:) still works.
+Lemu.experiences.setEnabled(false)
+
+// Close the one on screen.
+Lemu.experiences.hide()
+
+// Hear about messages (called on the main thread; every method is optional).
+final class Messages: NSObject, LemuExperiencesDelegate {
+    func lemuExperienceShown(_ event: LemuExperienceEvent) {}
+    func lemuExperienceClosed(_ event: LemuExperienceEvent) {}      // event.byUser
+    func lemuExperienceSubmitted(_ event: LemuExperienceEvent) {}   // event.fields, event.offerCode
+    func lemuExperienceClicked(_ event: LemuExperienceEvent) {}     // event.target
+}
+let messages = Messages()
+Lemu.experiences.delegate = messages // held weakly
+```
+
+To turn in-app messages off entirely (nothing is loaded):
+
+```swift
+Lemu.setup(writeKey: "lpk_...", options: LemuOptions(inAppMessages: false))
+```
+
+Product context: tracking `ViewContent` with `content_ids`, or sending `sku` with a screen
+(`Lemu.screen("Product", properties: ["sku": "SKU1"])`), tells Lemu which product is on screen
+for rules about the catalog or records.
+
+### What shows
+
+| Format | In the app |
+|---|---|
+| Popup | A card in the middle of the screen over a dimmed background. Tapping the background closes it unless turned off. |
+| Slide-in | A card at the bottom of the screen. |
+| Toast | A small card at the bottom that hides itself after a few seconds (8 by default). |
+| Bar | A banner across the top, below the status bar. |
+
+Other formats (inline blocks, teasers, floating buttons) are website only. Blocks: heading,
+text (shown as plain text), image, button (send the form, next step, close, open a link,
+copy the code), fields (email, phone with country code, text, number, checkbox or consent,
+and choices as chips), the offer code with a Copy button, and "No thanks". Forms post to
+Lemu, which can ask for a WhatsApp code before it accepts a phone number; the success step
+shows the offer code. Colours, corner radius and button shape come from your theme in Lemu.
+
+Lemu records `onsite_viewed`, `onsite_closed`, `onsite_clicked` and `onsite_held_out`
+through the SDK (they appear in your event stream like other events), and form submissions
+on the server. With `requireConsent`, messages still show before consent, but their history
+is kept in memory only. After `optOut()` no messages show.
+
 ## App lifecycle events
 
 Sent automatically unless you set `trackLifecycle: false`:
@@ -373,6 +454,9 @@ options.debug = YES;
              properties:nil];
 [Lemu trackDeepLink:url referrer:nil];
 [Lemu setConsent:YES];
+[Lemu.experiences show:@"size_alert"];
+[Lemu.experiences setEnabled:NO];
+Lemu.experiences.delegate = self; // <LemuExperiencesDelegate>
 ```
 
 ## Wire protocol
