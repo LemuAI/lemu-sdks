@@ -1,6 +1,6 @@
 # @lemuai/react-native
 
-Lemu tracking for React Native and Expo apps: events, purchases, known users, screens, app installs and opens, and the deep links that bring people in.
+Lemu tracking for React Native and Expo apps: events, purchases, known users, screens, app installs and opens, and the deep links that bring people in. It also shows the in-app messages you build in Lemu.
 
 Pure JavaScript with no native module of its own, so it works in Expo Go and in bare React Native apps.
 
@@ -124,6 +124,56 @@ lemu.reset();
 
 The user id is stored and sent with every later event, across restarts, until `reset()`. Contact details belong in traits only; Lemu removes them from event properties.
 
+## In-app messages
+
+In-app messages are the experiences you build in Lemu (Onsite, platform "App" or "Any"): popups, slide-ins, toasts and top bars with text, images, buttons and forms that capture emails and phone numbers, with offer codes after a submit. They follow the same rules as on your website: screens, audience, trigger, how often, A/B variants and holdout.
+
+Mount `<LemuExperiences />` once, as the last child of your root view, so messages draw above every screen:
+
+```tsx
+import { LemuExperiences } from "@lemuai/react-native";
+
+export default function App() {
+  return (
+    <View style={{ flex: 1 }}>
+      <NavigationContainer ref={navigationRef}>{/* your screens */}</NavigationContainer>
+      <LemuExperiences />
+    </View>
+  );
+}
+```
+
+Messages use the screen names you send with `screen()` (or `useLemuNavigationTracking`), so screen rules such as "screen is Home" or "screen starts with Product" match your route names.
+
+| Trigger in Lemu | In the app |
+|---|---|
+| Page load | Each `screen()` call on a matching screen |
+| After N seconds | N seconds after a matching `screen()` call, unless another screen comes first |
+| Event | A `track()` call with that event name (case, spaces, `_` and `-` don't matter) |
+| Manual | Only `lemu.experiences.show(key)` |
+
+```tsx
+// show one now, for example from a "Notify me" button (screen, audience and frequency rules are skipped)
+lemu.experiences.show("size_alert");
+
+// close the message on screen
+lemu.experiences.hide();
+
+// pause automatic messages, for example during checkout (show(key) still works)
+lemu.experiences.setEnabled(false);
+
+// shown | closed | submitted | clicked
+const stop = lemu.experiences.on("submitted", (e) => console.log(e.experience, e.variant, e.fields, e.offerCode));
+```
+
+- The config is fetched when the app starts and again when it returns to the foreground, at most every 5 minutes. `lemu.experiences.refresh()` fetches it now.
+- Audience rules the app answers itself: new or returning visitor, visit count and logged in (`identify` was called). Rules that need Lemu's data (segments, known contact, subscribed, records) are answered by Lemu. Website-only rules (cart, UTM, device) are ignored in apps. A `ViewContent` event's first `content_ids` value, or a `sku` property on `screen()`, is sent as the product for catalog rules.
+- What was shown, closed and submitted is kept in storage under `_lemu_os` for the frequency rules. With `requireConsent`, messages still show before consent but nothing is written. After `optOut()`, no messages show.
+- Lemu receives `onsite_viewed`, `onsite_closed`, `onsite_clicked` and `onsite_held_out` through `track`, and form submits go to Lemu directly, so the experience's stats and journeys work as they do on the website.
+- Supported blocks: heading, text, image, button (submit, next step, close, open a link), close link, fields (email, phone, text, number, consent checkbox, single choice) and the offer code. Other blocks and website-only formats (inline, teaser, floating button) are skipped.
+- Links open with `Linking.openURL`; pass `openUrl` to handle them yourself. "Copy" uses `@react-native-clipboard/clipboard` when it is installed; pass `copyToClipboard` to use another clipboard.
+- Turn it all off with `lemu.init("YOUR_WRITE_KEY", { inAppMessages: false })`. Nothing is fetched then.
+
 ## Consent and opt-out
 
 ```tsx
@@ -160,10 +210,13 @@ Requests carry a `User-Agent` of the form `lemu-react-native/1.0.0 (iOS 17.4; iP
 | `appName`, `appNamespace` | from `react-native-device-info` | |
 | `storage` | AsyncStorage | Any `{ get, set, remove }` storage, for example MMKV |
 | `deviceInfo` | found automatically | Pass `react-native-device-info` explicitly |
+| `inAppMessages` | `true` | Fetch and show in-app messages (needs `<LemuExperiences />`) |
+| `openUrl` | `Linking.openURL` | Opens links from in-app message buttons |
+| `copyToClipboard` | `@react-native-clipboard/clipboard` when installed | Copies an offer code |
 
 ## API
 
-`init`, `track(event, properties?)`, `screen(name, properties?)`, `purchase({ value, currency, order_id, ... })`, `identify(userId?, traits?)`, `reset()`, `flush()`, `setConsent(granted)`, `optOut()`, `optIn()`, `anonymousId()`, plus `trackNavigationState`, `useLemuNavigationTracking`, `createLemu()` for a separate client and `LemuEvent`.
+`init`, `track(event, properties?)`, `screen(name, properties?)`, `purchase({ value, currency, order_id, ... })`, `identify(userId?, traits?)`, `reset()`, `flush()`, `setConsent(granted)`, `optOut()`, `optIn()`, `anonymousId()`, plus `trackNavigationState`, `useLemuNavigationTracking`, `createLemu()` for a separate client and `LemuEvent`. In-app messages: `<LemuExperiences />` and `lemu.experiences` (`show(key)`, `hide()`, `setEnabled(on)`, `isEnabled()`, `refresh()`, `on(type, fn)`).
 
 ## License
 

@@ -14,6 +14,8 @@ export interface Campaign {
   content?: string;
   gclid?: string;
   fbclid?: string;
+  /** Set by Lemu message links (le2.in): which person the link was sent to. */
+  lmclid?: string;
 }
 
 export interface Context {
@@ -92,6 +94,8 @@ export interface LemuOptions {
   trackLifecycle?: boolean;
   /** Apps: send deep_link_opened and copy UTM parameters from links. Default true. */
   trackDeepLinks?: boolean;
+  /** Web snippet: load experiences and landing page forms (onsite.js) when the site has any live. Default true. */
+  onsite?: boolean;
 }
 
 // ----------------------------------------------------------------------------

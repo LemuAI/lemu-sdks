@@ -21,7 +21,9 @@ class LemuAndroidTest {
         assertFalse(d.trackActivityScreens)
         assertEquals(20, d.flushAt)
         assertEquals(30, d.flushIntervalSeconds)
-        val b = LemuOptions.builder().debug(true).requireConsent(true).flushAt(5).build()
+        assertTrue(d.inAppMessages)
+        val b = LemuOptions.builder().debug(true).requireConsent(true).flushAt(5).inAppMessages(false).build()
+        assertFalse(b.inAppMessages)
         assertTrue(b.debug)
         assertTrue(b.requireConsent)
         assertEquals(5, b.flushAt)
@@ -33,5 +35,10 @@ class LemuAndroidTest {
         Lemu.flush()
         assertNull(Lemu.anonymousId)
         assertFalse(Lemu.isSetUp)
+        assertFalse(Lemu.experiences.show("welcome"))
+        Lemu.experiences.setEnabled(false)
+        assertFalse(Lemu.experiences.isEnabled)
+        Lemu.experiences.setEnabled(true)
+        Lemu.experiences.hide()
     }
 }

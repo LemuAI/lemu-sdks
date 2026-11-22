@@ -2,7 +2,7 @@ package com.lemuai.analytics.core
 
 /** SDK version sent in `context.library.version` and the User-Agent. */
 object LemuVersion {
-    const val NAME: String = "1.0.0"
+    const val NAME: String = "1.1.0"
 }
 
 /**

@@ -5,12 +5,16 @@
  *   lemu.init("lpk_...", { appVersion: "3.2.0", appBuild: "320" });
  *   lemu.track(LemuEvent.AddToCart, { value: 999, currency: "INR" });
  *
+ * In-app messages (experiences built in Lemu for apps) show once
+ * `<LemuExperiences />` is mounted at the root of the app.
+ *
  * Pure JavaScript: no native module of its own, so it works in Expo Go.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   type Context,
   fetchTransport,
+  KEYS,
   type LemuOptions,
   LemuClient,
   LemuEvent,
@@ -19,9 +23,13 @@ import {
   type StorageAdapter,
 } from "@lemuai/analytics/core";
 import { AppState, Dimensions, Linking, Platform } from "react-native";
-import { useEffect } from "react";
+import { createElement, type ReactElement, useEffect } from "react";
+import { ExperiencesHost } from "./experiences/host";
+import { ExperienceManager } from "./experiences/manager";
 
 export { LemuEvent };
+export { ExperienceManager };
+export type { LemuExperienceEvent, LemuExperienceEventType } from "./experiences/manager";
 export type {
   LemuEventName,
   LemuOptions,
@@ -63,6 +71,12 @@ export interface ReactNativeOptions extends LemuOptions {
   storage?: StorageAdapter;
   /** Pass react-native-device-info explicitly. Found automatically when installed. */
   deviceInfo?: DeviceInfoLike | null;
+  /** In-app messages from Lemu (shown by `<LemuExperiences />`). Default true; false fetches nothing. */
+  inAppMessages?: boolean;
+  /** Opens links from in-app message buttons. Default `Linking.openURL`. */
+  openUrl?: (url: string) => void;
+  /** Copies an offer code. Default `@react-native-clipboard/clipboard` when installed, else React Native's own `Clipboard` when it has one. */
+  copyToClipboard?: (text: string) => void;
 }
 
 declare const require: (id: string) => unknown;
@@ -71,6 +85,29 @@ function loadDeviceInfo(): DeviceInfoLike | null {
   try {
     const mod = require("react-native-device-info") as { default?: DeviceInfoLike } & DeviceInfoLike;
     return (mod && (mod.default || mod)) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+interface ClipboardLike {
+  setString(text: string): void;
+}
+
+function loadClipboard(): ClipboardLike | null {
+  const pick = (mod: unknown): ClipboardLike | null => {
+    const m = mod as { default?: ClipboardLike; Clipboard?: ClipboardLike } & Partial<ClipboardLike>;
+    const c = m && (m.default || m.Clipboard || m);
+    return c && typeof (c as ClipboardLike).setString === "function" ? (c as ClipboardLike) : null;
+  };
+  try {
+    const found = pick(require("@react-native-clipboard/clipboard"));
+    if (found) return found;
+  } catch (e) {
+    /* not installed */
+  }
+  try {
+    return pick({ Clipboard: (require("react-native") as { Clipboard?: ClipboardLike }).Clipboard });
   } catch (e) {
     return null;
   }
@@ -120,6 +157,11 @@ export class LemuReactNative extends LemuClient<ReactNativeOptions> {
   private appBuild?: string;
   private linkSub?: { remove(): void };
   private configured = false;
+  private consented = true;
+  private optedOutNow = false;
+
+  /** In-app messages: `show(key)`, `hide()`, `setEnabled(on)`, `refresh()`, `on(type, fn)`. */
+  readonly experiences: ExperienceManager;
 
   constructor() {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -151,6 +193,34 @@ export class LemuReactNative extends LemuClient<ReactNativeOptions> {
     });
     this.headers = headers;
     context = () => this.deviceContext();
+    this.experiences = new ExperienceManager({
+      writeKey: () => this.writeKey,
+      host: () => this.host,
+      anonymousId: () => this.anonymousId(),
+      userId: () => this.userId(),
+      track: (event, properties) => this.track(event, properties),
+      storage: () => this.a.storage,
+      headers: () => {
+        const out: Record<string, string> = {};
+        if (this.headers["User-Agent"]) out["User-Agent"] = this.headers["User-Agent"];
+        return out;
+      },
+      optedOut: () => this.optedOutNow,
+      storageAllowed: () => this.consented && !this.optedOutNow,
+      platform: () => (Platform.OS === "ios" || Platform.OS === "android" ? Platform.OS : String(Platform.OS)),
+      log: (...args) => this.log(...args),
+      openUrl: (url) => {
+        const custom = this.options().openUrl;
+        if (custom) custom(url);
+        else Linking.openURL(url).catch(() => undefined);
+      },
+      copy: (text) => {
+        const custom = this.options().copyToClipboard;
+        if (custom) return custom(text);
+        const clipboard = loadClipboard();
+        if (clipboard) clipboard.setString(text);
+      },
+    });
   }
 
   init(writeKey: string, options?: ReactNativeOptions): void {
@@ -159,6 +229,7 @@ export class LemuReactNative extends LemuClient<ReactNativeOptions> {
       this.configured = true;
       const o = options || {};
       if (o.storage) this.a.storage = o.storage;
+      this.consented = !o.requireConsent;
       const info = o.deviceInfo !== undefined ? o.deviceInfo : loadDeviceInfo();
       this.appVersion = call(info, "getVersion") || o.appVersion;
       this.appBuild = call(info, "getBuildNumber") || o.appBuild;
@@ -188,8 +259,43 @@ export class LemuReactNative extends LemuClient<ReactNativeOptions> {
     super.init(writeKey, options);
   }
 
+  track(event: string, properties?: Properties): void {
+    super.track(event, properties);
+    this.safe(() => this.experiences.onTrack(event, properties));
+  }
+
+  screen(name: string, properties?: Properties): void {
+    super.screen(name, properties);
+    this.safe(() => {
+      if (typeof name === "string" && name.trim()) this.experiences.onScreen(name.trim(), properties);
+    });
+  }
+
+  setConsent(granted: boolean): void {
+    super.setConsent(granted);
+    this.when(() => {
+      this.consented = !!granted;
+    });
+  }
+
+  optOut(): void {
+    super.optOut();
+    this.when(() => {
+      this.optedOutNow = true;
+      this.experiences.hide();
+    });
+  }
+
+  optIn(): void {
+    super.optIn();
+    this.when(() => {
+      this.optedOutNow = false;
+    });
+  }
+
   shutdown(): void {
     super.shutdown();
+    this.safe(() => this.experiences.shutdown());
     this.safe(() => {
       if (this.linkSub) this.linkSub.remove();
       this.linkSub = undefined;
@@ -198,6 +304,9 @@ export class LemuReactNative extends LemuClient<ReactNativeOptions> {
 
   protected started(): void {
     const o = this.options();
+    this.optedOutNow = this.stored(KEYS.optOut) === "1";
+    if (this.stored(KEYS.consent) === "1") this.consented = true;
+    if (o.inAppMessages !== false) this.experiences.start();
     if (o.trackLifecycle) {
       const previous = this.stored(VERSION_KEY);
       const previousBuild = this.stored(BUILD_KEY);
@@ -236,10 +345,12 @@ export class LemuReactNative extends LemuClient<ReactNativeOptions> {
 
   protected onForeground(): void {
     if (this.options().trackLifecycle) this.track(LemuEvent.AppOpened, { from_background: true });
+    if (this.options().inAppMessages !== false) this.experiences.onForeground();
   }
 
   protected onBackground(): void {
     if (this.options().trackLifecycle) this.track(LemuEvent.AppBackgrounded, {});
+    this.experiences.onBackground();
     super.onBackground();
   }
 
@@ -279,6 +390,21 @@ export function createLemu(): LemuReactNative {
 
 /** The shared client. */
 export const lemu: LemuReactNative = /* @__PURE__ */ createLemu();
+
+/**
+ * Shows in-app messages. Mount it once, as the last child of the app's root
+ * view (inside your providers, after the navigation container), so messages
+ * draw above every screen:
+ *
+ *   <View style={{ flex: 1 }}>
+ *     <NavigationContainer>...</NavigationContainer>
+ *     <LemuExperiences />
+ *   </View>
+ */
+export function LemuExperiences(props: { client?: LemuReactNative }): ReactElement {
+  const client = (props && props.client) || lemu;
+  return createElement(ExperiencesHost, { manager: client.experiences });
+}
 
 // ----------------------------------------------------------------------------
 // React Navigation

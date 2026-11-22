@@ -9,6 +9,7 @@ journeys, audiences and conversion reporting.
   across restarts.
 - Meta standard event names, so ads platforms receive conversions unchanged.
 - Consent mode and opt-out built in. No advertising ids, no hardware ids.
+- In-app messages: popups, banners and forms built in Lemu, shown with native Flutter widgets.
 
 Requires Dart 3.4 or later (Flutter 3.22 or later).
 
@@ -59,6 +60,7 @@ await Lemu.instance.setup(
     maxQueueSize: 1000,      // events kept on the device while offline (at most 1,000)
     trackLifecycle: true,    // app_installed, app_updated, app_opened, app_backgrounded
     trackDeepLinks: true,    // deep_link_opened from trackDeepLink()
+    inAppMessages: true,     // see "In-app messages"
   ),
 );
 ```
@@ -186,6 +188,103 @@ Or send screens by hand:
 ```dart
 Lemu.instance.screen('Checkout', {'step': 2});
 ```
+
+## In-app messages
+
+Experiences you build in Lemu (Onsite, platform App or Any) show in the app as native Flutter
+widgets: popups, slide-ins, toasts and top bars with text, images, buttons and forms. Answers go
+to Lemu the same way website forms do, so they update contacts, consent and records and can start
+journeys. The rules are the same as on the website: screens, targeting, triggers, frequency, A/B
+variants and holdout.
+
+### Set up
+
+Mount `LemuExperiencesHost` once around your app. Messages are drawn inside it:
+
+```dart
+MaterialApp(
+  builder: (context, child) => LemuExperiencesHost(child: child!),
+  navigatorObservers: [LemuNavigatorObserver()],
+);
+```
+
+`LemuExperiencesHost` needs no Material ancestor, so it also works with `CupertinoApp` and
+`WidgetsApp`. The SDK fetches the live experiences after `setup` and again when the app returns
+to the foreground (at most every 5 minutes).
+
+### Screens and triggers
+
+The "Where" rules in Lemu match the screen names the SDK reports (`LemuNavigatorObserver` or
+`Lemu.instance.screen()`): "Screen is" (ignores case) and "Screen starts with". Triggers:
+
+| Trigger in Lemu | In the app |
+|---|---|
+| Page load | Each time a matching screen is reported |
+| After N seconds | N seconds after a matching screen is reported; a new screen cancels it |
+| SDK event | When you call `track()` with that event name, for example `LemuEvent.addToCart` |
+| Manual | Only when you call `show()` |
+
+Other website triggers (scroll, exit intent, clicks on page elements) don't apply in apps.
+Targeting rules that apps can answer are new or returning visitor, visit count and "identified"
+(after `identify()` with a user id); rules that need Lemu's data (segments, known contact, records)
+are checked by Lemu. A `ViewContent` event with `content_ids` tells Lemu which product is on screen
+until the next screen. At most one message shows at a time.
+
+### Control them from code
+
+```dart
+final experiences = Lemu.instance.experiences;
+
+experiences.show('size_alert');   // show now, whatever its trigger, screens and frequency say
+experiences.hide();               // close the message on screen
+experiences.setEnabled(false);    // pause automatic messages, for example during checkout
+experiences.setEnabled(true);
+await experiences.refresh();      // fetch the live experiences now
+```
+
+`show()` returns false when nothing could show: the key is unknown, a message is already on
+screen, no `LemuExperiencesHost` is mounted, or the user is in the experiment's holdout group. If
+the experiences haven't loaded yet, it shows once they have.
+
+### Events
+
+```dart
+Lemu.instance.experiences.events.listen((event) {
+  switch (event.type) {
+    case LemuExperienceEventType.shown:
+    case LemuExperienceEventType.closed:     // event.byUser
+    case LemuExperienceEventType.submitted:  // event.fields, event.offerCode
+    case LemuExperienceEventType.clicked:    // event.target (the URL or copy_code)
+  }
+});
+```
+
+The SDK also sends `onsite_viewed`, `onsite_closed`, `onsite_clicked` and `onsite_held_out` to
+Lemu for the experience's reports.
+
+### Links
+
+The SDK has no dependency for opening links. Give it a handler, for example with url_launcher:
+
+```dart
+Lemu.instance.experiences.urlHandler = (uri) => launchUrl(uri);
+```
+
+Without one, a button that opens a link records the click and closes the message.
+
+### What is supported
+
+- Formats: popup (centred, over a dimmed background), slide-in and toast (at the bottom; a toast
+  hides itself after a few seconds), bar (at the top). Other formats are website only.
+- Blocks: heading, text, image, button (submit, next step, close, open a link, copy code), close
+  link, form fields (email, phone, text, number, checkbox and consent, choices) and the offer
+  code after a submit. Multi-step forms and the WhatsApp code check work as on the website.
+- Colours, corner radius and button style come from your Onsite theme in Lemu.
+
+To turn in-app messages off, set `inAppMessages: false` in `LemuOptions`; the SDK then never
+fetches them. Opted-out users see none. With `requireConsent`, messages show before consent but
+what the SDK remembers about them (shown, closed, submitted) stays in memory until consent is
+given. On Flutter web the website script shows experiences, so this SDK doesn't.
 
 ## Deep links and campaigns
 

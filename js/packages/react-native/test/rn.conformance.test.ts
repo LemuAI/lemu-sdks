@@ -19,7 +19,8 @@ import { mock } from "./mocks/react-native";
 let ingest: Ingest;
 const clients: LemuReactNative[] = [];
 
-/** Lifecycle and deep links are off unless a test turns them on. */
+/** Lifecycle and deep links are off unless a test turns them on. In-app
+ * messages are off too (their config request isn't a batch; see experiences.test.ts). */
 async function make(options: ReactNativeOptions = {}): Promise<LemuReactNative> {
   const c = createLemu();
   clients.push(c);
@@ -31,6 +32,7 @@ async function make(options: ReactNativeOptions = {}): Promise<LemuReactNative> 
     appVersion: "1.0.0",
     appBuild: "1",
     deviceInfo: null,
+    inAppMessages: false,
     ...options,
   });
   await c.ready();

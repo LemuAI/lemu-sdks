@@ -111,6 +111,53 @@ final class FakeTransport: LemuTransport {
     }
 }
 
+// MARK: - Fake HTTP for in-app messages
+
+/// Answers config, decide and submit requests from a responder (404 by default) and records them.
+final class FakeExperienceHTTP: ExperienceHTTP {
+    struct Request {
+        let method: String
+        let path: String
+        let query: String
+        let headers: [String: String]
+        let json: [String: Any]
+    }
+
+    private let lock = NSLock()
+    private let callbackQueue = DispatchQueue(label: "lemu.tests.fake-experience-http")
+    private var recorded: [Request] = []
+    var responder: (Request) -> (Int?, Any?) = { _ in (404, nil) }
+
+    var requests: [Request] {
+        lock.lock(); defer { lock.unlock() }
+        return recorded
+    }
+
+    func requests(_ path: String) -> [Request] {
+        return requests.filter { $0.path == path }
+    }
+
+    func send(_ request: URLRequest, completion: @escaping (Int?, Data?) -> Void) {
+        var headers: [String: String] = [:]
+        for (name, value) in request.allHTTPHeaderFields ?? [:] { headers[name.lowercased()] = value }
+        let json = request.httpBody.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] } ?? [:]
+        let r = Request(
+            method: request.httpMethod ?? "GET",
+            path: request.url?.path ?? "",
+            query: request.url?.query ?? "",
+            headers: headers,
+            json: json
+        )
+        lock.lock()
+        recorded.append(r)
+        let respond = responder
+        lock.unlock()
+        let (status, body) = respond(r)
+        let data = body.flatMap { try? JSONSerialization.data(withJSONObject: $0) }
+        callbackQueue.async { completion(status, data) }
+    }
+}
+
 // MARK: - Test environment
 
 /// A client wired to a fake clock, store, directory and transport.
@@ -119,6 +166,7 @@ final class TestEnv {
     let store = InMemoryStore()
     let clock = MutableClock()
     let transport = FakeTransport()
+    let experienceHTTP = FakeExperienceHTTP()
     var app = AppInfo(name: "Brand", version: "3.2.0", build: "320", namespace: "com.brand.app")
     let device = DeviceInfo(
         model: "iPhone15,2", type: "phone", osName: "iOS", osVersion: "17.2",
@@ -146,7 +194,8 @@ final class TestEnv {
                 self.logLock.lock()
                 self.logs.append(line)
                 self.logLock.unlock()
-            }
+            },
+            experienceHTTP: experienceHTTP
         )
     }
 

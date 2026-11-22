@@ -8,8 +8,10 @@ import '../core/events.dart';
 import '../core/lemu_core.dart';
 import '../core/options.dart';
 import '../core/storage.dart';
+import '../experiences/engine.dart';
 import '../web/web_bridge_stub.dart'
     if (dart.library.js_interop) '../web/web_bridge_web.dart';
+import 'experiences.dart';
 import 'platform_context.dart';
 import 'shared_preferences_storage.dart';
 
@@ -32,6 +34,8 @@ class Lemu with WidgetsBindingObserver {
   static final Lemu instance = Lemu._();
 
   LemuCore? _core;
+  ExperienceEngine? _engine;
+  http.Client? _ownedClient;
   bool _debug = false;
   bool _inBackground = false;
   bool _observing = false;
@@ -41,6 +45,10 @@ class Lemu with WidgetsBindingObserver {
 
   /// True once [setup] has been called.
   bool get isSetUp => _core != null;
+
+  /// In-app messages: `show`, `hide`, `setEnabled`, `events`. Messages
+  /// appear inside a [LemuExperiencesHost].
+  final LemuExperiences experiences = LemuExperiences.internal();
 
   /// The anonymous id for this install (or browser), kept until [reset].
   /// Null until [setup] has finished.
@@ -67,10 +75,11 @@ class Lemu with WidgetsBindingObserver {
         return;
       }
       WidgetsFlutterBinding.ensureInitialized();
+      final store = storage ?? SharedPreferencesLemuStorage();
       final core = LemuCore(
         writeKey: writeKey,
         options: options,
-        storage: storage ?? SharedPreferencesLemuStorage(),
+        storage: store,
         httpClient: httpClient,
         platformInfo: loadFlutterPlatformInfo,
         idBridge: kIsWeb ? createWebIdBridge() : null,
@@ -84,7 +93,13 @@ class Lemu with WidgetsBindingObserver {
       }
       WidgetsBinding.instance.addObserver(this);
       _observing = true;
+      final engine = options.inAppMessages && !kIsWeb
+          ? _startExperiences(core, writeKey, options, store, httpClient)
+          : null;
       await core.ready;
+      if (engine != null && identical(_engine, engine)) {
+        unawaited(engine.start());
+      }
     } catch (e) {
       _log('setup failed: $e');
     }
@@ -98,12 +113,16 @@ class Lemu with WidgetsBindingObserver {
   ///   'value': 999, 'currency': 'INR', 'content_ids': ['SKU1'],
   /// });
   /// ```
-  void track(String event, [Map<String, Object?>? properties]) =>
-      _core?.track(event, properties);
+  void track(String event, [Map<String, Object?>? properties]) {
+    _core?.track(event, properties);
+    _experiencesCall(() => _engine?.onTrack(event, properties));
+  }
 
   /// Records a screen view. See also [LemuNavigatorObserver].
-  void screen(String name, [Map<String, Object?>? properties]) =>
-      _core?.screen(name, properties);
+  void screen(String name, [Map<String, Object?>? properties]) {
+    _core?.screen(name, properties);
+    _experiencesCall(() => _engine?.onScreen(name));
+  }
 
   /// Tells Lemu who the user is. [traits] may hold `email`, `phone` (E.164),
   /// `first_name`, `last_name`, `name` and anything else. Contact details
@@ -165,10 +184,12 @@ class Lemu with WidgetsBindingObserver {
         if (_inBackground) return;
         _inBackground = true;
         core.appBackgrounded();
+        _experiencesCall(() => _engine?.onBackground());
       } else if (state == AppLifecycleState.resumed) {
         if (!_inBackground) return;
         _inBackground = false;
         core.appOpened(fromBackground: true);
+        _experiencesCall(() => _engine?.onForeground());
       }
     } catch (e) {
       _log('lifecycle: $e');
@@ -180,12 +201,58 @@ class Lemu with WidgetsBindingObserver {
   Future<void> debugTearDown() async {
     final core = _core;
     _core = null;
+    _engine?.close();
+    _engine = null;
+    attachExperienceEngine(experiences, null);
+    _ownedClient?.close();
+    _ownedClient = null;
     _inBackground = false;
     if (_observing) {
       WidgetsBinding.instance.removeObserver(this);
       _observing = false;
     }
     await core?.close();
+  }
+
+  ExperienceEngine _startExperiences(
+    LemuCore core,
+    String writeKey,
+    LemuOptions options,
+    LemuStorage storage,
+    http.Client? httpClient,
+  ) {
+    final client = httpClient ?? (_ownedClient = http.Client());
+    final engine = ExperienceEngine(
+      writeKey: writeKey.trim(),
+      apiHost: options.apiHost,
+      client: client,
+      storage: storage,
+      track: (event, properties) => core.track(event, properties),
+      anonymousId: () => core.anonymousId,
+      userId: () => core.userId,
+      canStore: () => core.hasConsent && !core.isOptedOut,
+      optedOut: () => core.isOptedOut,
+      display: () => experienceDisplayOf(experiences),
+      emit: (event) => emitExperienceEvent(experiences, event),
+      platform: defaultTargetPlatform == TargetPlatform.iOS
+          ? 'ios'
+          : defaultTargetPlatform == TargetPlatform.android
+              ? 'android'
+              : defaultTargetPlatform.name,
+      userAgent: () => core.userAgent,
+      log: _log,
+    );
+    _engine = engine;
+    attachExperienceEngine(experiences, engine);
+    return engine;
+  }
+
+  void _experiencesCall(void Function() body) {
+    try {
+      body();
+    } catch (e) {
+      _log('experiences: $e');
+    }
   }
 
   void _log(String message) {

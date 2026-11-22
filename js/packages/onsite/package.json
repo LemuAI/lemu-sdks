@@ -1,0 +1,17 @@
+{
+  "name": "@lemuai/onsite",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Lemu experiences and landing page runtime (onsite.js), loaded by lemu.js when a site has something live.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsup && node scripts/copy.mjs",
+    "test": "vitest run",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "size": "node scripts/size.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}

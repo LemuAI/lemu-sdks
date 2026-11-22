@@ -12,6 +12,7 @@ struct LemuConfiguration {
     var maxQueueSize = 1000
     var trackLifecycle = true
     var trackDeepLinks = true
+    var inAppMessages = true
 
     // Protocol values (spec/protocol.md).
     var maxBatchSize = 50
@@ -37,6 +38,7 @@ struct LemuConfiguration {
         maxQueueSize = max(1, options.maxQueueSize)
         trackLifecycle = options.trackLifecycle
         trackDeepLinks = options.trackDeepLinks
+        inAppMessages = options.inAppMessages
     }
 
     var endpoint: URL {
@@ -56,6 +58,9 @@ struct LemuEnvironment {
     var app: AppInfo = .current()
     var device: DeviceInfo = .current()
     var logSink: ((String) -> Void)?
+    /// In-app messages: config, decide and submit requests, and where they show.
+    var experienceHTTP: ExperienceHTTP = URLSessionExperienceHTTP()
+    var experiencePresenter: ExperiencePresenter?
 }
 
 /// The tracking engine. Every piece of state is touched only on `queue`, a
@@ -180,6 +185,12 @@ final class LemuClient {
 
     var isOptedOut: Bool {
         return onQueueSync { optedOut }
+    }
+
+    /// False while `requireConsent` waits for an answer (or consent was refused):
+    /// in-app message history then stays in memory.
+    var isStorageAllowed: Bool {
+        return onQueueSync { storageAllowed && consentState == .granted }
     }
 
     func track(_ event: String, properties: [String: Any]?) {
@@ -429,6 +440,7 @@ final class LemuClient {
         let keys: [String: String] = [
             "utm_source": "source", "utm_medium": "medium", "utm_campaign": "campaign",
             "utm_term": "term", "utm_content": "content", "gclid": "gclid", "fbclid": "fbclid",
+            "lmclid": "lmclid",
         ]
         var campaign: [String: JSONValue] = [:]
         for item in items {

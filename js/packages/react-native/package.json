@@ -1,7 +1,7 @@
 {
   "name": "@lemuai/react-native",
-  "version": "1.0.0",
-  "description": "Lemu tracking for React Native and Expo apps: events, purchases, app lifecycle, deep links and screens.",
+  "version": "1.1.0",
+  "description": "Lemu tracking for React Native and Expo apps: events, purchases, app lifecycle, deep links, screens and in-app messages.",
   "license": "MIT",
   "author": "LemuAI",
   "homepage": "https://docs.lemuai.com",
@@ -32,7 +32,7 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@lemuai/analytics": "^1.0.0"
+    "@lemuai/analytics": "^1.1.0"
   },
   "peerDependencies": {
     "@react-native-async-storage/async-storage": ">=1.17",

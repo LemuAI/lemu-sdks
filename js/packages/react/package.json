@@ -1,6 +1,6 @@
 {
   "name": "@lemuai/react",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Lemu tracking for React and Next.js: provider, hooks and page tracking.",
   "license": "MIT",
   "author": "LemuAI",
@@ -30,7 +30,7 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@lemuai/analytics": "^1.0.0"
+    "@lemuai/analytics": "^1.1.0"
   },
   "peerDependencies": {
     "react": ">=17"

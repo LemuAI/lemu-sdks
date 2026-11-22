@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0
+
+- Campaign context keeps `lmclid`, the click id Lemu adds to message links, so a visit from a WhatsApp, SMS or email link is tied to the person it was sent to.
+
+- In-app messages: experiences built in Lemu for apps (popup, slide-in, toast and top bar) show
+  as native widgets inside `LemuExperiencesHost`. Screen rules, page load, delay, event and manual
+  triggers, frequency caps, A/B variants with holdout and targeting follow the same rules as the
+  website. Forms submit to Lemu, including multi-step forms, the WhatsApp code check and offer codes.
+- `Lemu.instance.experiences`: `show()`, `hide()`, `setEnabled()`, `refresh()`, `urlHandler` and
+  an `events` stream (`LemuExperienceEvent`).
+- `LemuOptions.inAppMessages` (default true) turns them off.
+
 ## 1.0.0
 
 First release.

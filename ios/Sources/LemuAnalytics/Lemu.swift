@@ -54,6 +54,9 @@ public final class Lemu: NSObject {
         if configuration.trackLifecycle {
             newClient.trackApplicationLaunch(app: env.app)
         }
+        if configuration.inAppMessages {
+            startExperiences(client: newClient, configuration: configuration, environment: env, isTest: environment != nil)
+        }
         #if canImport(UIKit) && (os(iOS) || os(tvOS))
         if environment == nil {
             let startObserver = {
@@ -82,7 +85,45 @@ public final class Lemu: NSObject {
         lifecycleObserver = nil
         #endif
         lock.unlock()
+        LemuExperiences.shared.detach()
         old?.shutdown()
+    }
+
+    private static func startExperiences(client: LemuClient, configuration: LemuConfiguration, environment env: LemuEnvironment, isTest: Bool) {
+        var presenter = env.experiencePresenter
+        #if canImport(UIKit) && os(iOS)
+        if !isTest, presenter == nil { presenter = UIKitExperiencePresenter() }
+        #endif
+        let deps = ExperienceManager.Dependencies(
+            writeKey: configuration.writeKey,
+            apiHost: configuration.apiHost,
+            userAgent: LemuContextBuilder.userAgent(device: env.device),
+            http: env.experienceHTTP,
+            store: env.store,
+            now: { [clock = env.clock] in clock.now() },
+            anonymousId: { [weak client] in client?.anonymousId },
+            userId: { [weak client] in client?.currentUserId },
+            isOptedOut: { [weak client] in client?.isOptedOut ?? true },
+            storageAllowed: { [weak client] in client?.isStorageAllowed ?? false },
+            track: { [weak client] event, properties in client?.track(event, properties: properties) },
+            presenter: presenter,
+            emit: { event in LemuExperiences.shared.dispatch(event) },
+            log: { [logger = client.logger] line in logger.debug(line) }
+        )
+        let manager = ExperienceManager(deps)
+        #if canImport(UIKit) && os(iOS)
+        if !isTest { manager.observers = ExperienceAppObserver(manager: manager) }
+        #endif
+        LemuExperiences.shared.attach(manager)
+        manager.start()
+    }
+
+    // MARK: In-app messages
+
+    /// In-app messages: the experiences you build in Lemu for this app.
+    /// See `LemuExperiences`.
+    @objc public static var experiences: LemuExperiences {
+        return LemuExperiences.shared
     }
 
     static var currentClient: LemuClient? {
@@ -109,12 +150,14 @@ public final class Lemu: NSObject {
     @objc(track:properties:)
     public static func track(_ event: String, properties: [String: Any]? = nil) {
         withClient("track") { $0.track(event, properties: properties) }
+        LemuExperiences.shared.currentManager?.didTrack(event, properties: properties)
     }
 
     /// Records a screen view (`type: "screen"`).
     @objc(screen:properties:)
     public static func screen(_ name: String, properties: [String: Any]? = nil) {
         withClient("screen") { $0.screen(name, properties: properties) }
+        LemuExperiences.shared.currentManager?.didScreen(name, properties: properties)
     }
 
     /// Tells Lemu who the user is. `userId` is your own id for the user and is
@@ -142,6 +185,7 @@ public final class Lemu: NSObject {
                 contentIds: contentIds, numItems: numItems, properties: properties
             )
         }
+        LemuExperiences.shared.currentManager?.didTrack(LemuEvent.purchase, properties: properties)
     }
 
     /// Objective-C version of `purchase(value:currency:orderId:...)`.
